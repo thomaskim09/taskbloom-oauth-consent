@@ -4,48 +4,110 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="no-referrer">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://sxwsoslpymbfwotvtrgl.supabase.co; script-src 'self' https://esm.sh; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'">
-    <title>TaskBloom authorization</title>
+    <meta name="description" content="Sign in to connect your Bloom Apps account with ChatGPT.">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://sxwsoslpymbfwotvtrgl.supabase.co; script-src 'self' https://esm.sh; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+    <title>Bloom Apps · Connect your account</title>
     <style>
-      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f4f1ea; color: #25231f; }
-      main { width: min(34rem, calc(100% - 2rem)); box-sizing: border-box; padding: 2rem; border: 1px solid #d8d0c2; border-radius: 1rem; background: #fffdf8; box-shadow: 0 1rem 3rem #25231f18; }
-      h1 { margin-top: 0; }
-      dl { display: grid; grid-template-columns: max-content 1fr; gap: .75rem 1rem; overflow-wrap: anywhere; }
-      dt { font-weight: 700; }
-      dd { margin: 0; }
-      .actions { display: flex; gap: .75rem; margin-top: 1.5rem; }
-      button { cursor: pointer; border: 0; border-radius: .6rem; padding: .7rem 1rem; font: inherit; }
-      #approve { background: #2f6f55; color: white; }
-      #deny { background: #e4ddd1; color: #25231f; }
-      #email-form { display: grid; gap: .5rem; margin-top: 1rem; }
-      #email-form[hidden] { display: none; }
-      #email-form label { font-weight: 700; }
-      #email-form input { box-sizing: border-box; width: 100%; border: 1px solid #b9b1a5; border-radius: .6rem; padding: .7rem; font: inherit; }
-      #email-submit { background: #2f6f55; color: white; }
-      #email-toggle { background: transparent; color: #2f6f55; padding-left: 0; text-decoration: underline; }
-      #status { min-height: 1.5rem; }
-      @media (prefers-color-scheme: dark) {
-        body { background: #1c1b19; color: #f4f1ea; }
-        main { border-color: #4b463e; background: #292722; }
-        #deny { background: #4b463e; color: #f4f1ea; }
+      :root {
+        color-scheme: light dark;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1d2b24;
+        background: #f4f7f3;
       }
+      * { box-sizing: border-box; }
+      body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        padding: 1.5rem;
+        place-items: center;
+        background: radial-gradient(circle at 50% 0%, #e5efe6 0, #f4f7f3 42rem);
+      }
+      main {
+        width: min(100%, 28rem);
+        padding: clamp(1.5rem, 6vw, 2.5rem);
+        border: 1px solid #dce5dd;
+        border-radius: 1.25rem;
+        background: #fff;
+        box-shadow: 0 1.5rem 4rem #243b2d14;
+      }
+      .brand { display: flex; align-items: center; gap: .65rem; color: #305c43; font-size: .95rem; font-weight: 700; }
+      .brand-mark { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: .7rem; background: #e7f1e8; color: #246442; font-weight: 800; }
+      h1 { margin: 1.75rem 0 .5rem; font-size: clamp(1.65rem, 5vw, 2rem); letter-spacing: -.035em; line-height: 1.15; }
+      #status { min-height: 1.5rem; margin: 0; color: #59675e; line-height: 1.55; }
+      #status[data-error="true"] { color: #a33c32; }
+      .methods, #email-form, .actions { display: grid; gap: .75rem; margin-top: 1.5rem; }
+      #email-form[hidden], #login-methods[hidden], #authorization[hidden] { display: none; }
+      button, input { width: 100%; min-height: 3rem; border-radius: .7rem; font: inherit; }
+      button { padding: .7rem 1rem; cursor: pointer; font-weight: 650; transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease; }
+      button:hover:not(:disabled) { transform: translateY(-1px); }
+      button:focus-visible, input:focus-visible { outline: 3px solid #88b89a; outline-offset: 2px; }
+      button:disabled { cursor: wait; opacity: .65; }
+      .button-primary { border: 1px solid #246442; background: #246442; color: #fff; }
+      .button-primary:hover:not(:disabled) { background: #1c5235; }
+      .button-secondary { border: 1px solid #ccd8ce; background: #fff; color: #1d2b24; }
+      .google-mark { display: inline-grid; width: 1.4rem; height: 1.4rem; margin-right: .5rem; place-items: center; border: 1px solid #d9e1dc; border-radius: 50%; color: #4285f4; font-weight: 750; }
+      .email-label { margin-top: .25rem; font-size: .9rem; font-weight: 650; }
+      input { border: 1px solid #c9d4cc; padding: .7rem .85rem; background: #fff; color: #1d2b24; }
+      .button-link { min-height: auto; border: 0; background: transparent; color: #305c43; font-weight: 600; }
+      .app-label { margin: 1.75rem 0 .35rem; color: #64736a; font-size: .75rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+      #client-name { margin: 0; font-size: 1.35rem; letter-spacing: -.02em; }
+      #permission-summary { margin: .85rem 0 0; color: #435249; line-height: 1.55; }
+      .permission-note { margin: .9rem 0 0; padding: .8rem .9rem; border-left: 3px solid #83ad8f; border-radius: 0 .55rem .55rem 0; background: #f2f7f2; color: #425248; font-size: .9rem; line-height: 1.5; }
+      #approve { border: 1px solid #246442; background: #246442; color: #fff; }
+      #deny { border: 1px solid #d8e0da; background: #fff; color: #435249; }
+      .trust-note { margin: 1.35rem 0 0; color: #748078; font-size: .8rem; line-height: 1.5; text-align: center; }
+      @media (prefers-color-scheme: dark) {
+        :root { color: #edf4ee; background: #111a14; }
+        body { background: radial-gradient(circle at 50% 0%, #22372a 0, #111a14 42rem); }
+        main { border-color: #35463a; background: #1b2820; box-shadow: 0 1.5rem 4rem #0005; }
+        .brand, .button-link { color: #a9d1b3; }
+        .brand-mark { background: #293e30; color: #c6e4ce; }
+        #status, #permission-summary, .permission-note { color: #c2cec5; }
+        .permission-note { border-left-color: #78a987; background: #25372b; }
+        .button-secondary, input, #deny { border-color: #46564b; background: #202e25; color: #edf4ee; }
+        .google-mark { border-color: #46564b; }
+        .trust-note { color: #a3afa6; }
+      }
+      @media (prefers-reduced-motion: reduce) { button { transition: none; } }
     </style>
   </head>
   <body>
-    <main>
-      <h1>TaskBloom authorization</h1>
-      <p id="status" role="status">Checking your sign-in…</p>
-      <section id="details" hidden></section>
-      <div id="actions" class="actions"></div>
+    <main aria-labelledby="page-title">
+      <header class="brand" aria-label="Bloom Apps">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>Bloom Apps</span>
+      </header>
+      <h1 id="page-title">Connect your Bloom account</h1>
+      <p id="status" role="status" aria-live="polite">Choose how you'd like to sign in.</p>
+
+      <section id="login-methods" class="methods" aria-label="Choose a sign-in method">
+        <button id="google-login" class="button-secondary" type="button"><span class="google-mark" aria-hidden="true">G</span>Continue with Google</button>
+        <button id="email-login" class="button-secondary" type="button">Continue with email and password</button>
+      </section>
+
       <form id="email-form" hidden>
-        <label for="email">Email</label>
+        <label class="email-label" for="email">Email</label>
         <input id="email" name="email" type="email" autocomplete="username" required>
-        <label for="password">Password</label>
+        <label class="email-label" for="password">Password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
-        <button id="email-submit" type="submit">Sign in with email</button>
+        <button id="email-submit" class="button-primary" type="submit">Sign in</button>
+        <button id="back-to-methods" class="button-link" type="button">Choose another sign-in method</button>
       </form>
+
+      <section id="authorization" hidden aria-labelledby="client-name">
+        <p class="app-label">App requesting access</p>
+        <h2 id="client-name"></h2>
+        <p id="permission-summary"></p>
+        <p class="permission-note">The connected assistant can make changes when you ask it to. Choose “Not now” if you don't want to connect.</p>
+        <div class="actions">
+          <button id="approve" type="button">Allow connection</button>
+          <button id="deny" type="button">Not now</button>
+        </div>
+      </section>
+
+      <p class="trust-note">Only continue if you recognize this connection. You can close this tab to cancel.</p>
     </main>
-        <script type="module" src="./consent.js"></script>
+    <script type="module" src="./consent.js"></script>
   </body>
 </html>

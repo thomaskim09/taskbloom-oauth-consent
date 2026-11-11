@@ -1,136 +1,198 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-      const supabase = createClient(
-        "https://sxwsoslpymbfwotvtrgl.supabase.co",
-        "sb_publishable_tAaqXngWru59zAnvkxPwbQ_RvJII5VT",
-        { auth: { autoRefreshToken: true, detectSessionInUrl: true, persistSession: true } },
-      );
-      const url = new URL(location.href);
-      const authorizationId = url.searchParams.get("authorization_id") ??
-        sessionStorage.getItem("taskbloom_authorization_id");
-      const status = document.querySelector("#status");
-      const details = document.querySelector("#details");
-      const actions = document.querySelector("#actions");
-      const emailForm = document.querySelector("#email-form");
-      const emailInput = document.querySelector("#email");
-      const passwordInput = document.querySelector("#password");
-      const emailSubmit = document.querySelector("#email-submit");
+const supabase = createClient(
+  "https://sxwsoslpymbfwotvtrgl.supabase.co",
+  "sb_publishable_tAaqXngWru59zAnvkxPwbQ_RvJII5VT",
+  { auth: { autoRefreshToken: true, detectSessionInUrl: true, persistSession: true } },
+);
 
-      const showError = (message) => {
-        status.textContent = message;
-        status.style.color = "#a32d2d";
-      };
+const AUTHORIZATION_ID_KEY = "bloom_authorization_id";
+const PENDING_LOGIN_KEY = "bloom_authorization_login_method";
+const url = new URL(location.href);
+const authorizationId = url.searchParams.get("authorization_id") ??
+  sessionStorage.getItem(AUTHORIZATION_ID_KEY);
+const heading = document.querySelector("#page-title");
+const status = document.querySelector("#status");
+const loginMethods = document.querySelector("#login-methods");
+const googleLogin = document.querySelector("#google-login");
+const emailLogin = document.querySelector("#email-login");
+const emailForm = document.querySelector("#email-form");
+const emailInput = document.querySelector("#email");
+const passwordInput = document.querySelector("#password");
+const emailSubmit = document.querySelector("#email-submit");
+const backToMethods = document.querySelector("#back-to-methods");
+const authorization = document.querySelector("#authorization");
+const clientName = document.querySelector("#client-name");
+const permissionSummary = document.querySelector("#permission-summary");
+const approveButton = document.querySelector("#approve");
+const denyButton = document.querySelector("#deny");
 
-      const addDetail = (label, value) => {
-        const term = document.createElement("dt");
-        term.textContent = label;
-        const description = document.createElement("dd");
-        description.textContent = value || "Not provided";
-        details.append(term, description);
-      };
+function setStatus(message, isError = false) {
+  status.textContent = message;
+  status.dataset.error = String(isError);
+}
 
-      const decide = async (decision) => {
-        actions.querySelectorAll("button").forEach((button) => button.disabled = true);
-        status.textContent = decision === "approve" ? "Approving…" : "Denying…";
-        const method = decision === "approve" ? "approveAuthorization" : "denyAuthorization";
-        const { data, error } = await supabase.auth.oauth[method](authorizationId);
-        if (error || !data?.redirect_url) {
-          showError(error?.message ?? "The authorization response was incomplete.");
-          actions.querySelectorAll("button").forEach((button) => button.disabled = false);
-          return;
-        }
-        sessionStorage.removeItem("taskbloom_authorization_id");
-        location.replace(data.redirect_url);
-      };
+function renderLoginChoices(message = "Choose how you'd like to sign in.") {
+  heading.textContent = "Connect your Bloom account";
+  document.title = "Bloom Apps · Connect your account";
+  setStatus(message);
+  loginMethods.hidden = false;
+  emailForm.hidden = true;
+  authorization.hidden = true;
+  googleLogin.disabled = false;
+  emailLogin.disabled = false;
+  emailSubmit.disabled = false;
+}
 
-      const renderSignIn = () => {
-        status.textContent = "Sign in to review the TaskBloom access request.";
-        actions.replaceChildren();
-        const googleSignIn = document.createElement("button");
-        googleSignIn.id = "approve";
-        googleSignIn.type = "button";
-        googleSignIn.textContent = "Continue with Google";
-        googleSignIn.addEventListener("click", async () => {
-          googleSignIn.disabled = true;
-          const { error } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: { redirectTo: location.href },
-          });
-          if (error) {
-            showError(error.message);
-            googleSignIn.disabled = false;
-          }
-        });
-        const emailToggle = document.createElement("button");
-        emailToggle.id = "email-toggle";
-        emailToggle.type = "button";
-        emailToggle.textContent = "Use email and password";
-        emailToggle.addEventListener("click", () => {
-          emailForm.hidden = !emailForm.hidden;
-          emailToggle.textContent = emailForm.hidden
-            ? "Use email and password"
-            : "Use Google instead";
-          if (!emailForm.hidden) emailInput.focus();
-        });
-        actions.append(googleSignIn, emailToggle);
-        emailForm.hidden = true;
-        emailForm.onsubmit = async (event) => {
-          event.preventDefault();
-          emailSubmit.disabled = true;
-          status.textContent = "Signing in…";
-          const { error } = await supabase.auth.signInWithPassword({
-            email: emailInput.value.trim(),
-            password: passwordInput.value,
-          });
-          if (error) {
-            showError("Email/password sign-in failed. Check the supplied credentials.");
-            passwordInput.value = "";
-            emailSubmit.disabled = false;
-            return;
-          }
-          location.reload();
-        };
-      };
+function showEmailForm() {
+  loginMethods.hidden = true;
+  emailForm.hidden = false;
+  authorization.hidden = true;
+  setStatus("Sign in with your email and password.");
+  emailInput.focus();
+}
 
-      const main = async () => {
-        if (!authorizationId) {
-          showError("This authorization link is missing its request id.");
-          return;
-        }
-        sessionStorage.setItem("taskbloom_authorization_id", authorizationId);
+async function signOutCurrentSession() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (!data.session) return;
+  const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+  if (signOutError) throw signOutError;
+}
 
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session) {
-          renderSignIn();
-          return;
-        }
+function getProductName(name) {
+  const normalized = String(name ?? "").toLowerCase();
+  if (normalized.includes("taskbloom")) return "TaskBloom";
+  if (normalized.includes("weekbloom") || normalized.includes("weekweave")) {
+    return "WeekBloom";
+  }
+  return "Bloom Apps";
+}
 
-        const { data: authorization, error } =
-          await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
-        if (error || !authorization) {
-          showError(error?.message ?? "This authorization request is invalid or expired.");
-          return;
-        }
-        if (!("authorization_id" in authorization) && authorization.redirect_url) {
-          location.replace(authorization.redirect_url);
-          return;
-        }
+function getPermissionSummary(productName, clientName) {
+  if (productName === "TaskBloom") {
+    return `${clientName} can view your tasks and projects and help you manage them.`;
+  }
+  if (productName === "WeekBloom") {
+    return `${clientName} can view your weekly schedule and help you manage events you choose.`;
+  }
+  return `${clientName} can use your Bloom account to help with your requests.`;
+}
 
-        status.textContent = "Review the requested access before continuing.";
-        details.hidden = false;
-        addDetail("Client", authorization.client?.name);
-        addDetail("Redirect URI", authorization.redirect_uri);
-        addDetail("Requested scopes", authorization.scope);
+async function renderAuthorization() {
+  setStatus("Checking this connection…");
+  const { data: request, error } =
+    await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+  if (error || !request) {
+    setStatus("This connection request has expired. Return to ChatGPT and try again.", true);
+    loginMethods.hidden = true;
+    emailForm.hidden = true;
+    return;
+  }
+  if (!("authorization_id" in request) && request.redirect_url) {
+    sessionStorage.removeItem(AUTHORIZATION_ID_KEY);
+    location.replace(request.redirect_url);
+    return;
+  }
 
-        const approve = document.createElement("button");
-        approve.id = "approve";
-        approve.textContent = "Approve";
-        approve.addEventListener("click", () => decide("approve"));
-        const deny = document.createElement("button");
-        deny.id = "deny";
-        deny.textContent = "Deny";
-        deny.addEventListener("click", () => decide("deny"));
-        actions.append(approve, deny);
-      };
+  const name = String(request.client?.name ?? "").trim() || "ChatGPT";
+  heading.textContent = "Review this connection";
+  document.title = "Review connection · Bloom Apps";
+  clientName.textContent = name;
+  permissionSummary.textContent = getPermissionSummary(getProductName(name), name);
+  loginMethods.hidden = true;
+  emailForm.hidden = true;
+  authorization.hidden = false;
+  setStatus("Review this connection before allowing it.");
+  approveButton.disabled = false;
+  denyButton.disabled = false;
+  approveButton.focus();
+}
 
-      main().catch((error) => showError(error?.message ?? "Unable to load the authorization request."));
+async function decide(decision) {
+  approveButton.disabled = true;
+  denyButton.disabled = true;
+  setStatus(decision === "approve" ? "Connecting your account…" : "Returning to ChatGPT…");
+  const method = decision === "approve" ? "approveAuthorization" : "denyAuthorization";
+  try {
+    const { data, error } = await supabase.auth.oauth[method](authorizationId);
+    if (error || !data?.redirect_url) throw error ?? new Error("Missing redirect");
+    sessionStorage.removeItem(AUTHORIZATION_ID_KEY);
+    sessionStorage.removeItem(PENDING_LOGIN_KEY);
+    location.replace(data.redirect_url);
+  } catch {
+    setStatus("We couldn't finish this connection. Return to ChatGPT and try again.", true);
+    approveButton.disabled = false;
+    denyButton.disabled = false;
+  }
+}
+
+googleLogin.addEventListener("click", async () => {
+  googleLogin.disabled = true;
+  emailLogin.disabled = true;
+  setStatus("Opening Google sign-in…");
+  try {
+    await signOutCurrentSession();
+    sessionStorage.setItem(PENDING_LOGIN_KEY, "google");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: location.href },
+    });
+    if (error) throw error;
+  } catch {
+    sessionStorage.removeItem(PENDING_LOGIN_KEY);
+    renderLoginChoices("Google sign-in couldn't start. Try again or choose email.");
+  }
+});
+
+emailLogin.addEventListener("click", showEmailForm);
+backToMethods.addEventListener("click", () => renderLoginChoices());
+
+emailForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  emailSubmit.disabled = true;
+  setStatus("Signing in…");
+  try {
+    await signOutCurrentSession();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailInput.value.trim(),
+      password: passwordInput.value,
+    });
+    if (error) throw error;
+    passwordInput.value = "";
+  } catch {
+    passwordInput.value = "";
+    emailSubmit.disabled = false;
+    setStatus("Sign-in didn't work. Check your details and try again.", true);
+    return;
+  }
+  await renderAuthorization();
+});
+
+approveButton.addEventListener("click", () => decide("approve"));
+denyButton.addEventListener("click", () => decide("deny"));
+
+async function main() {
+  if (!authorizationId) {
+    setStatus("This connection request is missing or expired. Return to ChatGPT and try again.", true);
+    loginMethods.hidden = true;
+    return;
+  }
+  sessionStorage.setItem(AUTHORIZATION_ID_KEY, authorizationId);
+  const pendingLogin = sessionStorage.getItem(PENDING_LOGIN_KEY);
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (pendingLogin === "google" && sessionData.session) {
+    sessionStorage.removeItem(PENDING_LOGIN_KEY);
+    await renderAuthorization();
+    return;
+  }
+  sessionStorage.removeItem(PENDING_LOGIN_KEY);
+  const message = url.searchParams.has("error")
+    ? "Google sign-in wasn't completed. Choose a sign-in method to try again."
+    : "Choose how you'd like to sign in.";
+  renderLoginChoices(message);
+}
+
+main().catch(() => {
+  setStatus("Something went wrong. Return to ChatGPT and try again.", true);
+});
