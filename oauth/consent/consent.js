@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient(
-  "https://sxwsoslpymbfwotvtrgl.supabase.co",
+  "https://auth.thomaskim.top",
   "sb_publishable_tAaqXngWru59zAnvkxPwbQ_RvJII5VT",
   { auth: { autoRefreshToken: true, detectSessionInUrl: true, persistSession: true } },
 );
